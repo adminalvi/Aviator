@@ -1,0 +1,374 @@
+import os
+
+html_content = """<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aviator VIP Live Game</title>
+<!-- Firebase SDKs -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+body { background: #0f121d; color: #fff; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+header { background: #1a1e2e; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #282e42; }
+.logo { font-size: 20px; font-weight: bold; color: #e52e42; display: flex; align-items: center; gap: 8px; }
+.vip-badge { background: linear-gradient(45deg, #ffd700, #ffa500); color: #000; font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: bold; }
+.user-section { display: flex; align-items: center; gap: 15px; }
+.balance-box { background: #0f121d; padding: 6px 14px; border-radius: 20px; border: 1px solid #282e42; color: #28a745; font-weight: bold; font-size: 14px; }
+.btn { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: all 0.2s; }
+.btn-primary { background: #e52e42; color: white; }
+.btn-primary:hover { background: #c62235; }
+.btn-success { background: #28a745; color: white; }
+.btn-warning { background: #ffc107; color: #000; }
+.btn-secondary { background: #343a40; color: white; }
+
+main { display: flex; flex: 1; padding: 15px; gap: 15px; height: calc(100vh - 65px); }
+.game-container { flex: 3; background: #161a27; border-radius: 12px; border: 1px solid #282e42; display: flex; flex-direction: column; position: relative; overflow: hidden; }
+.canvas-wrapper { flex: 1; position: relative; background: radial-gradient(circle at center, #1c2235 0%, #111420 100%); }
+canvas { width: 100%; height: 100%; display: block; }
+
+.multiplier-overlay { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); text-align: center; pointer-events: none; }
+.multiplier-text { font-size: 64px; font-weight: 900; text-shadow: 0 0 20px rgba(0,0,0,0.8); }
+.status-text { font-size: 18px; font-weight: 600; text-transform: uppercase; letter-spacing: 2px; margin-top: 5px; }
+
+.control-panel { background: #1a1e2e; padding: 15px; border-radius: 8px; margin: 12px; display: flex; gap: 15px; align-items: center; border: 1px solid #282e42; }
+.input-group { display: flex; flex-direction: column; gap: 5px; flex: 1; }
+.input-group label { font-size: 12px; color: #8a8f9d; font-weight: 600; }
+.input-group input, .input-group select { background: #0f121d; border: 1px solid #282e42; color: #fff; padding: 10px; border-radius: 6px; font-size: 14px; font-weight: bold; outline: none; }
+.btn-action { height: 50px; flex: 1.5; font-size: 18px; text-transform: uppercase; letter-spacing: 1px; }
+
+.side-panel { flex: 1; background: #161a27; border-radius: 12px; border: 1px solid #282e42; padding: 15px; display: flex; flex-direction: column; gap: 15px; }
+.panel-header { font-size: 16px; font-weight: bold; border-bottom: 1px solid #282e42; padding-bottom: 8px; color: #8a8f9d; }
+.history-list { display: flex; flex-wrap: wrap; gap: 6px; max-height: 120px; overflow-y: auto; }
+.history-item { background: #1a1e2e; border: 1px solid #282e42; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; color: #9c27b0; }
+
+.modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); justify-content: center; align-items: center; z-index: 1000; }
+.modal-content { background: #1a1e2e; padding: 25px; border-radius: 12px; border: 1px solid #282e42; width: 400px; display: flex; flex-direction: column; gap: 15px; }
+.modal-content h3 { font-size: 18px; color: #fff; border-bottom: 1px solid #282e42; padding-bottom: 10px; }
+.payment-info { background: #0f121d; padding: 12px; border-radius: 6px; border: 1px solid #282e42; font-size: 13px; color: #ffc107; line-height: 1.6; }
+.copy-btn { padding: 2px 8px; font-size: 11px; margin-left: 5px; cursor: pointer; background: #343a40; color: white; border: none; border-radius: 4px; }
+
+#auth-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #0f121d; display: flex; justify-content: center; align-items: center; z-index: 2000; }
+.auth-card { background: #1a1e2e; padding: 40px; border-radius: 16px; border: 1px solid #282e42; text-align: center; width: 320px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+</style>
+</head>
+<body>
+
+<div id="auth-overlay">
+<div class="auth-card">
+<h2 style="color:#e52e42; margin-bottom: 10px;">✈️ AVIATOR VIP</h2>
+<p style="color:#8a8f9d; font-size:14px; margin-bottom:25px;">Sign in to play and manage your wallet</p>
+<button class="btn btn-primary" style="width:100%; padding:12px;" onclick="googleSignIn()">Sign in with Google</button>
+</div>
+</div>
+
+<header>
+<div class="logo">✈️ AVIATOR <span class="vip-badge">VIP LIVE</span></div>
+<div class="user-section">
+<div class="balance-box">Balance: $<span id="user-balance">0.00</span></div>
+<button class="btn btn-success" onclick="openModal('deposit-modal')">Deposit</button>
+<button class="btn btn-warning" onclick="openModal('withdraw-modal')">Withdraw</button>
+<span id="user-name" style="font-size:14px; font-weight:600; color:#8a8f9d;"></span>
+</div>
+</header>
+
+<main>
+<div class="game-container">
+<div class="canvas-wrapper">
+<canvas id="gameCanvas"></canvas>
+<div class="multiplier-overlay">
+<div class="multiplier-text" id="multiplier-display" style="color: #fff;">1.00x</div>
+<div class="status-text" id="status-display" style="color: #8a8f9d;">WAITING FOR NEXT ROUND</div>
+</div>
+</div>
+<div class="control-panel">
+<div class="input-group">
+<label>BET AMOUNT ($)</label>
+<input type="number" id="bet-amount" value="10" min="1" step="1">
+</div>
+<button class="btn btn-primary btn-action" id="action-btn" onclick="handleGameAction()">BET</button>
+</div>
+</div>
+
+<div class="side-panel">
+<div class="panel-header">PREVIOUS CRASHES</div>
+<div class="history-list" id="history-list"></div>
+</div>
+</main>
+
+<!-- Deposit Modal -->
+<div class="modal" id="deposit-modal">
+<div class="modal-content">
+<h3>VIP Deposit Methods</h3>
+<div class="input-group">
+<label>SELECT METHOD</label>
+<select id="deposit-method" onchange="togglePaymentInfo()">
+<option value="easypaisa">EasyPaisa (IBAN / Bank)</option>
+<option value="trc20">USDT TRC20 (Crypto)</option>
+</select>
+</div>
+
+<div id="easypaisa-info" class="payment-info">
+<strong>Title:</strong> Saleem Akram<br>
+<strong>Bank:</strong> Telenor Microfinance Bank / EasyPaisa<br>
+<strong>IBAN:</strong><br>
+<span id="ep-iban">PK95TMFB0000000027110903</span>
+<button class="copy-btn" onclick="navigator.clipboard.writeText('PK95TMFB0000000027110903')">Copy</button>
+</div>
+
+<div id="trc20-info" class="payment-info" style="display:none;">
+<strong>USDT TRC20 Address:</strong><br>
+<span id="trc-addr">TXXXXXXXXXXXXXXXXXXXXXXXXXXXXX</span>
+<button class="copy-btn" onclick="navigator.clipboard.writeText('TXXXXXXXXXXXXXXXXXXXXXXXXXXXXX')">Copy</button>
+</div>
+
+<div class="input-group">
+<label>AMOUNT ($)</label>
+<input type="number" id="deposit-amount" value="50" min="5">
+</div>
+<button class="btn btn-success" onclick="processDeposit()">Submit Deposit Request</button>
+<button class="btn btn-secondary" onclick="closeModal('deposit-modal')">Cancel</button>
+</div>
+</div>
+
+<!-- Withdraw Modal -->
+<div class="modal" id="withdraw-modal">
+<div class="modal-content">
+<h3>Withdraw Funds</h3>
+<div class="input-group">
+<label>METHOD</label>
+<select id="withdraw-method">
+<option value="easypaisa">EasyPaisa / Bank</option>
+<option value="trc20">USDT TRC20</option>
+</select>
+</div>
+<div class="input-group">
+<label>ACCOUNT / WALLET ADDRESS</label>
+<input type="text" id="withdraw-acc" placeholder="Enter IBAN or TRC20 Address">
+</div>
+<div class="input-group">
+<label>AMOUNT ($)</label>
+<input type="number" id="withdraw-amount" value="50" min="10">
+</div>
+<button class="btn btn-warning" onclick="processWithdrawal()">Request Cashout</button>
+<button class="btn btn-secondary" onclick="closeModal('withdraw-modal')">Cancel</button>
+</div>
+</div>
+
+<script>
+// --- Firebase Configuration ---
+const firebaseConfig = {
+apiKey: "AIzaSyD4dUC27vVCLu2YkrbKQAkyFv0BC4nCvrM",
+authDomain: "aviator-2cc92.firebaseapp.com",
+projectId: "aviator-2cc92",
+storageBucket: "aviator-2cc92.firebasestorage.app",
+messagingSenderId: "120415087737",
+appId: "1:120415087737:web:51ef8ade45b34323f1b8a8",
+measurementId: "G-QW623MTVZE"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+let currentUser = null;
+let userBalance = 0;
+let gameState = 'IDLE';
+let currentMultiplier = 1.00;
+let crashPoint = 0;
+let gameInterval = null;
+let activeBet = 0;
+let hasCashedOut = false;
+
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+function resizeCanvas() {
+canvas.width = canvas.parentElement.clientWidth;
+canvas.height = canvas.parentElement.clientHeight;
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+function googleSignIn() {
+const provider = new firebase.auth.GoogleAuthProvider();
+auth.signInWithPopup(provider).catch(err => alert(err.message));
+}
+
+auth.onAuthStateChanged(user => {
+if (user) {
+currentUser = user;
+document.getElementById('auth-overlay').style.display = 'none';
+document.getElementById('user-name').innerText = user.displayName || user.email;
+
+const userRef = db.collection('users').doc(user.uid);
+userRef.get().then(doc => {
+if (!doc.exists) {
+userRef.set({ balance: 100.00, email: user.email });
+}
+});
+
+userRef.onSnapshot(doc => {
+if (doc.exists) {
+userBalance = doc.data().balance || 0;
+document.getElementById('user-balance').innerText = userBalance.toFixed(2);
+}
+});
+} else {
+document.getElementById('auth-overlay').style.display = 'flex';
+}
+});
+
+function openModal(id) { document.getElementById(id).style.display = 'flex'; }
+function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+function togglePaymentInfo() {
+const method = document.getElementById('deposit-method').value;
+document.getElementById('easypaisa-info').style.display = method === 'easypaisa' ? 'block' : 'none';
+document.getElementById('trc20-info').style.display = method === 'trc20' ? 'block' : 'none';
+}
+
+function processDeposit() {
+const amt = parseFloat(document.getElementById('deposit-amount').value);
+if (amt > 0 && currentUser) {
+db.collection('users').doc(currentUser.uid).update({
+balance: firebase.firestore.FieldValue.increment(amt)
+});
+alert('Deposit request submitted successfully!');
+closeModal('deposit-modal');
+}
+}
+
+function processWithdrawal() {
+const amt = parseFloat(document.getElementById('withdraw-amount').value);
+const acc = document.getElementById('withdraw-acc').value;
+
+if (!acc) { alert('Please enter account or wallet details!'); return; }
+
+if (amt > 0 && amt <= userBalance && currentUser) {
+db.collection('users').doc(currentUser.uid).update({
+balance: firebase.firestore.FieldValue.increment(-amt)
+});
+alert('Withdrawal request submitted successfully!');
+closeModal('withdraw-modal');
+} else {
+alert('Insufficient funds!');
+}
+}
+
+function drawCurve(progress) {
+ctx.clearRect(0, 0, canvas.width, canvas.height);
+if (gameState === 'IDLE') return;
+
+ctx.beginPath();
+ctx.lineWidth = 4;
+ctx.strokeStyle = gameState === 'CRASHED' ? '#e52e42' : '#28a745';
+
+const startX = 50;
+const startY = canvas.height - 50;
+const endX = startX + (canvas.width - 100) * Math.min(progress, 1);
+const endY = startY - (canvas.height - 150) * Math.min(progress, 1);
+
+ctx.moveTo(startX, startY);
+ctx.quadraticCurveTo((startX + endX)/2, startY, endX, endY);
+ctx.stroke();
+
+ctx.fillStyle = gameState === 'CRASHED' ? '#e52e42' : '#ffc107';
+ctx.beginPath();
+ctx.arc(endX, endY, 8, 0, Math.PI * 2);
+ctx.fill();
+}
+
+function handleGameAction() {
+if (gameState === 'IDLE') {
+const betInput = parseFloat(document.getElementById('bet-amount').value);
+if (betInput > userBalance) { alert('Insufficient balance!'); return; }
+
+activeBet = betInput;
+db.collection('users').doc(currentUser.uid).update({
+balance: firebase.firestore.FieldValue.increment(-activeBet)
+});
+
+hasCashedOut = false;
+startRound();
+} else if (gameState === 'RUNNING' && !hasCashedOut) {
+hasCashedOut = true;
+const winAmt = activeBet * currentMultiplier;
+db.collection('users').doc(currentUser.uid).update({
+balance: firebase.firestore.FieldValue.increment(winAmt)
+});
+
+const btn = document.getElementById('action-btn');
+btn.innerText = 'CASHED OUT';
+btn.style.background = '#343a40';
+}
+}
+
+function startRound() {
+gameState = 'RUNNING';
+currentMultiplier = 1.00;
+crashPoint = parseFloat((Math.random() * 4 + 1.1).toFixed(2));
+
+const btn = document.getElementById('action-btn');
+btn.innerText = 'CASHOUT';
+btn.style.background = '#ffc107';
+btn.style.color = '#000';
+
+document.getElementById('status-display').innerText = 'FLEW AWAY RISK INCREASING...';
+document.getElementById('status-display').style.color = '#28a745';
+
+let startTime = Date.now();
+
+gameInterval = setInterval(() => {
+let elapsed = (Date.now() - startTime) / 1000;
+currentMultiplier = parseFloat((1 + elapsed * 0.3).toFixed(2));
+
+document.getElementById('multiplier-display').innerText = currentMultiplier.toFixed(2) + 'x';
+document.getElementById('multiplier-display').style.color = '#fff';
+
+drawCurve(elapsed / 10);
+
+if (currentMultiplier >= crashPoint) {
+endRound();
+}
+}, 50);
+}
+
+function endRound() {
+clearInterval(gameInterval);
+gameState = 'CRASHED';
+
+document.getElementById('multiplier-display').innerText = currentMultiplier.toFixed(2) + 'x';
+document.getElementById('multiplier-display').style.color = '#e52e42';
+document.getElementById('status-display').innerText = 'FLEW AWAY!';
+document.getElementById('status-display').style.color = '#e52e42';
+
+const btn = document.getElementById('action-btn');
+btn.innerText = 'BET';
+btn.style.background = '#e52e42';
+btn.style.color = '#fff';
+
+const histList = document.getElementById('history-list');
+const item = document.createElement('div');
+item.className = 'history-item';
+item.innerText = currentMultiplier.toFixed(2) + 'x';
+histList.prepend(item);
+
+setTimeout(() => {
+gameState = 'IDLE';
+document.getElementById('status-display').innerText = 'WAITING FOR NEXT ROUND';
+document.getElementById('status-display').style.color = '#8a8f9d';
+ctx.clearRect(0, 0, canvas.width, canvas.height);
+}, 3000);
+}
+</script>
+</body>
+</html>
+"""
+
+with open("index.html", "w", encoding="utf-8") as f:
+f.write(html_content)
+
+print("Index.html updated with live Firebase keys and EasyPaisa credentials successfully!")
